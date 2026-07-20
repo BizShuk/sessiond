@@ -1,0 +1,51 @@
+# =============================================================================
+# sessiond config.example.yaml — reference for all supported settings
+# =============================================================================
+#
+# Drop this file into any of gosdk's config search paths:
+#   . / ./conf / ~/.config/<app>/
+# named "config.yaml" (base) or "config.local.yaml" (override).
+#
+# Layer order (low → high priority):
+#   1. defaults in pkg/sessiond/config/config.go (viper.SetDefault)
+#   2. config.yaml              in . / ./conf / ~/.config/superset/
+#   3. config.local.yaml        same search paths
+#   4. SUPERSET_* env vars      legacy single-source overrides
+#   5. APP_SESSIOND_* env vars  modern nested overrides
+#
+# Env-var mapping (verified by probe 2026-07-20):
+#   APP_SESSIOND_SUMMARIZER_PROVIDER → sessiond.summarizer.provider
+#   APP_SESSIOND_SUMMARIZER_MODEL    → sessiond.summarizer.model
+#   APP_SESSIOND_AGENTS_CLAUDE_TRANSCRIPTS_DIR → sessiond.agents.claude.transcripts_dir
+#   APP_SESSIOND_AGENTS_CODEX_SESSIONS_DIR     → sessiond.agents.codex.sessions_dir
+#
+# Use `_` as the path separator. No key replacer is configured, so direct
+# top-level keys (e.g. APP_FLATKEY) also work but are not part of the schema.
+# Legacy single-source overrides (no path):
+#   SUPERSET_SUMMARIZER, SUPERSET_SUMMARIZER_MODEL, SUPERSET_CODEX_SESSIONS_DIR
+# =============================================================================
+
+# ── Summarizer ──────────────────────────────────────────────────────────────
+sessiond:
+  summarizer:
+    # auto    → heuristic when GOOGLE_API_KEY unset, Gemini when set
+    # heuristic → always heuristic (zero network, zero cost)
+    # google  → always Gemini, fail loudly if key absent or model invalid
+    provider: auto
+
+    # Current default. Verified to exist on the Generative Language API as of
+    # 2026-07-20. Earlier draft default `gemma-4-31b` (no `-it` suffix) and the
+    # dead-code constant `gemma-3-27b-it` both 404. The const in
+    # pkg/sessiond/pkg/summarize/gemini.go is only consulted when this value
+    # is the empty string, so prefer changing it here.
+    model: gemma-4-26b-a4b-it
+
+  # ── Per-agent transcript locations ────────────────────────────────────────
+  # Leave empty to use the default for that agent:
+  #   claude: ~/.claude/projects/-<encoded-cwd>/<session-id>.jsonl
+  #   codex:  ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl
+  agents:
+    claude:
+      transcripts_dir: ""   # e.g. /Users/me/work/transcripts
+    codex:
+      sessions_dir: ""      # e.g. /Users/me/work/codex-sessions

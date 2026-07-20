@@ -1,0 +1,22 @@
+{
+  "_comment": "sessiond settings.json — drop into . / ./conf / ~/.config/superset/ as settings.json. Layered with config.yaml if both present (local wins). See config.example.yaml for env-var mapping.",
+
+  "sessiond": {
+    "summarizer": {
+      "provider": "auto",
+      "_provider_doc": "auto | heuristic | google",
+      "model": "gemma-4-26b-a4b-it",
+      "_model_doc": "Verified-existing id as of 2026-07-20; earlier drafts (gemma-4-31b, gemma-3-27b-it) returned 404"
+    },
+    "agents": {
+      "claude": {
+        "transcripts_dir": "",
+        "_transcripts_dir_doc": "Empty → ~/.claude/projects/-<encoded-cwd>/"
+      },
+      "codex": {
+        "sessions_dir": "",
+        "_sessions_dir_doc": "Empty → ~/.codex/sessions/YYYY/MM/DD/"
+      }
+    }
+  }
+}

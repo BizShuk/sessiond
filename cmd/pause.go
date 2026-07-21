@@ -2,46 +2,34 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
+	"strconv"
 
+	gosdkcmd "github.com/bizshuk/gosdk/cmd"
+	gosdkcfg "github.com/bizshuk/gosdk/config"
 	"github.com/spf13/cobra"
-
-	sessiondcfg "github.com/bizshuk/sessiond/config"
 )
 
-func newPauseCmd() *cobra.Command {
-	return newHooksStateCmd(
-		"pause",
-		"Pause hook ingestion",
-		"Pauses hook ingestion globally without flushing existing sessions. Hook calls made while paused are ignored and are not replayed by resume.",
-		true,
-	)
+// PauseCmd implements `sessiond pause`.
+var PauseCmd = &cobra.Command{
+	Use:   "pause",
+	Short: "Pause hook ingestion",
+	Long:  "Pauses hook ingestion globally without flushing existing sessions. Hook calls made while paused are ignored and are not replayed by resume. The state is stored in the app-level settings file, not project .claude or .codex configuration.",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := setHooksPaused(true); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "hooks paused: %s\n", hooksSettingsPath())
+		return nil
+	},
 }
 
-func newResumeCmd() *cobra.Command {
-	return newHooksStateCmd(
-		"resume",
-		"Resume hook ingestion",
-		"Resumes global hook ingestion. Hook calls ignored while paused are not replayed.",
-		false,
-	)
+func setHooksPaused(paused bool) error {
+	_, err := gosdkcmd.RunConfigUpdate([]string{"sessiond.hooks.paused=" + strconv.FormatBool(paused)})
+	return err
 }
 
-func newHooksStateCmd(use, short, long string, paused bool) *cobra.Command {
-	return &cobra.Command{
-		Use:   use,
-		Short: short,
-		Long:  long + " The state is stored in the app-level settings file, not project .claude or .codex configuration.",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := sessiondcfg.SetHooksPaused(paused); err != nil {
-				return err
-			}
-			state := "resumed"
-			if paused {
-				state = "paused"
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "hooks %s: %s\n", state, sessiondcfg.SettingsPath())
-			return nil
-		},
-	}
+func hooksSettingsPath() string {
+	return filepath.Join(gosdkcfg.GetAppConfigDir(), gosdkcmd.LOCAL_SETTINGS_FILE)
 }

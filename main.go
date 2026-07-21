@@ -10,12 +10,10 @@ import (
 	gosdkcfg "github.com/bizshuk/gosdk/config"
 
 	"github.com/bizshuk/sessiond/cmd"
-	sessiondcfg "github.com/bizshuk/sessiond/config"
 )
 
 func main() {
 	gosdkcfg.Default(gosdkcfg.WithAppName("superset"))
-	sessiondcfg.Init()
 
 	if err := cmd.NewRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "sessiond:", err)

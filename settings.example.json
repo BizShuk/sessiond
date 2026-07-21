@@ -4,7 +4,7 @@
   "sessiond": {
     "hooks": {
       "paused": false,
-      "_paused_doc": "sessiond pause sets true; sessiond resume sets false. Persisted app-wide at ~/.config/superset/settings.json"
+      "_paused_doc": "Default value; sessiond pause/resume persist the override app-wide via gosdk config in ~/.config/superset/settings.local.json"
     },
     "summarizer": {
       "provider": "auto",

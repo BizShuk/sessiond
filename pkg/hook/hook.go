@@ -56,7 +56,7 @@ func Run(opts RunOptions) error {
 	writeResponse(opts.Stdout, opts.Agent) // must precede any "no-op" returns
 	paused, err := opts.HooksPaused()
 	if err != nil {
-		log.Warn("read hook pause state failed; continuing", "agent", opts.Agent, "settings", sessiondcfg.SettingsPath(), "err", err)
+		log.Warn("read hook pause state failed; continuing", "agent", opts.Agent, "err", err)
 	} else if paused {
 		log.Info("hook ingestion paused", "agent", opts.Agent)
 		return nil

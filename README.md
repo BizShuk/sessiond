@@ -23,7 +23,7 @@ sessiond --version
 
 hook 是 best-effort:任何錯誤只寫 stderr 並 `exit 0`,絕不阻擋或拖慢 agent(`exit 2` 會 block Claude 的 Stop)。
 
-`pause` / `resume` 透過 app-level `~/.config/superset/settings.json` 的 `sessiond.hooks.paused` 控制所有 project 的 ingestion；這與 project `.claude/settings.json` / `.codex/config.toml` 的 hook wiring 分離。`pause` 立即生效且不 flush 既有 session；paused 期間的 hook 會被忽略，`resume` 不會重播。Claude paused hook 保持空 stdout，Codex 仍回覆 `{"continue": true}`，因此不會阻擋 agent。
+`pause` / `resume` 透過 gosdk `config --update` 寫入 app-level `~/.config/superset/settings.local.json` 的 `sessiond.hooks.paused`，控制所有 project 的 ingestion；這與 project `.claude/settings.json` / `.codex/config.toml` 的 hook wiring 分離。`pause` 立即生效且不 flush 既有 session；paused 期間的 hook 會被忽略，`resume` 不會重播。Claude paused hook 保持空 stdout，Codex 仍回覆 `{"continue": true}`，因此不會阻擋 agent。
 
 ## 輸出契約 (Storage contract)
 

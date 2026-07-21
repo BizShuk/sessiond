@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	gosdkcmd "github.com/bizshuk/gosdk/cmd"
 	"github.com/spf13/cobra"
 )
 
@@ -19,11 +20,12 @@ func NewRootCmd() *cobra.Command {
 	}
 	root.SetVersionTemplate("sessiond {{.Version}}\n")
 
-	root.AddCommand(newHookCmd())
-	root.AddCommand(newInstallCmd())
-	root.AddCommand(newUninstallCmd())
-	root.AddCommand(newPauseCmd())
-	root.AddCommand(newResumeCmd())
+	root.AddCommand(gosdkcmd.ConfigCmd)
+	root.AddCommand(HookCmd)
+	root.AddCommand(InstallCmd)
+	root.AddCommand(UninstallCmd)
+	root.AddCommand(PauseCmd)
+	root.AddCommand(ResumeCmd)
 
 	return root
 }

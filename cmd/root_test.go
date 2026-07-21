@@ -25,7 +25,7 @@ func TestRootIncludesUninstall(t *testing.T) {
 }
 
 func TestInstallCommandsDescribeProjectTargets(t *testing.T) {
-	for _, command := range []*cobra.Command{newInstallCmd(), newUninstallCmd()} {
+	for _, command := range []*cobra.Command{InstallCmd, UninstallCmd} {
 		if !strings.Contains(command.Long, "<project>/.claude/settings.json") ||
 			!strings.Contains(command.Long, "<project>/.codex/config.toml") {
 			t.Errorf("%s help omits project targets: %s", command.Name(), command.Long)
@@ -37,7 +37,7 @@ func TestInstallCommandsDescribeProjectTargets(t *testing.T) {
 }
 
 func TestUninstallRejectsArguments(t *testing.T) {
-	command := newUninstallCmd()
+	command := UninstallCmd
 	if err := command.Args(command, []string{"extra"}); err == nil {
 		t.Fatal("uninstall accepted positional argument")
 	}

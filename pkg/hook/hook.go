@@ -43,6 +43,7 @@ type RunOptions struct {
 	Logger       *slog.Logger
 	NewSummarize func() summarize.Summarizer
 	Now          func() time.Time
+	HooksPaused  func() (bool, error)
 }
 
 // Run executes one hook fire. It always returns nil; failures are logged via
@@ -52,8 +53,16 @@ func Run(opts RunOptions) error {
 	opts = withDefaults(opts)
 	log := opts.Logger
 
-	p, _ := hookpayload.Read(opts.Stdin)
 	writeResponse(opts.Stdout, opts.Agent) // must precede any "no-op" returns
+	paused, err := opts.HooksPaused()
+	if err != nil {
+		log.Warn("read hook pause state failed; continuing", "agent", opts.Agent, "settings", sessiondcfg.SettingsPath(), "err", err)
+	} else if paused {
+		log.Info("hook ingestion paused", "agent", opts.Agent)
+		return nil
+	}
+
+	p, _ := hookpayload.Read(opts.Stdin)
 
 	raws, cwd, err := extractTurns(opts, p)
 	if err != nil {
@@ -136,6 +145,9 @@ func withDefaults(o RunOptions) RunOptions {
 			}
 			return g
 		}
+	}
+	if o.HooksPaused == nil {
+		o.HooksPaused = sessiondcfg.HooksPaused
 	}
 	if o.Now == nil {
 		o.Now = func() time.Time { return time.Now() }

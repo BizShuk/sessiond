@@ -23,6 +23,7 @@ import (
 // Init wires defaults into viper. Safe to call multiple times (viper.SetDefault
 // overwrites). Call once at process start, before any getter.
 func Init() {
+	viper.SetDefault("sessiond.hooks.paused", false)
 	viper.SetDefault("sessiond.summarizer.provider", "auto") // auto | heuristic | google
 	viper.SetDefault("sessiond.summarizer.model", "gemma-4-26b-a4b-it")
 	viper.SetDefault("sessiond.agents.claude.transcripts_dir", "") // empty → default ~/.claude/projects

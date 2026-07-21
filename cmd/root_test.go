@@ -43,25 +43,22 @@ func TestUninstallRejectsArguments(t *testing.T) {
 	}
 }
 
-func TestRootIncludesStop(t *testing.T) {
+func TestRootIncludesPauseAndResume(t *testing.T) {
 	root := NewRootCmd()
-	command, _, err := root.Find([]string{"stop"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if command.Name() != "stop" {
-		t.Fatalf("got command %q", command.Name())
-	}
-	for _, name := range []string{"workspace", "session", "agent", "dry-run"} {
-		if command.Flags().Lookup(name) == nil {
-			t.Errorf("stop missing --%s", name)
+	for _, name := range []string{"pause", "resume"} {
+		command, _, err := root.Find([]string{name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if command.Name() != name {
+			t.Fatalf("got command %q, want %q", command.Name(), name)
+		}
+		if err := command.Args(command, []string{"extra"}); err == nil {
+			t.Errorf("%s accepted positional argument", name)
 		}
 	}
-}
-
-func TestStopRejectsArguments(t *testing.T) {
-	command := newStopCmd()
-	if err := command.Args(command, []string{"extra"}); err == nil {
-		t.Fatal("stop accepted positional argument")
+	command, _, err := root.Find([]string{"stop"})
+	if err == nil && command.Name() == "stop" {
+		t.Fatal("root still includes stop")
 	}
 }

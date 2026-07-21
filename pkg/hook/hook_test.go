@@ -75,6 +75,42 @@ func newTestLogger() (*slog.Logger, *bytes.Buffer) {
 
 func newStdin(s string) io.Reader { return strings.NewReader(s) }
 
+func TestRun_PausedSkipsIngestionAndKeepsAgentResponse(t *testing.T) {
+	for _, tc := range []struct {
+		agent      string
+		wantStdout string
+	}{
+		{agent: "claude", wantStdout: ""},
+		{agent: "codex", wantStdout: "{\"continue\": true}\n"},
+	} {
+		t.Run(tc.agent, func(t *testing.T) {
+			dataDir := t.TempDir()
+			sum := &stubSummarizer{tag: "unused"}
+			var stdout bytes.Buffer
+			err := Run(RunOptions{
+				Agent:        tc.agent,
+				Stdin:        strings.NewReader("not json and must not be read"),
+				Stdout:       &stdout,
+				DataDir:      dataDir,
+				NewSummarize: func() summarize.Summarizer { return sum },
+				HooksPaused:  func() (bool, error) { return true, nil },
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stdout.String() != tc.wantStdout {
+				t.Fatalf("stdout = %q, want %q", stdout.String(), tc.wantStdout)
+			}
+			if sum.calls != 0 {
+				t.Fatalf("summarizer calls = %d, want 0", sum.calls)
+			}
+			if _, err := os.Stat(filepath.Join(dataDir, "sessions")); !os.IsNotExist(err) {
+				t.Fatalf("session store unexpectedly created: %v", err)
+			}
+		})
+	}
+}
+
 func TestRun_Claude_HappyPath_AppendsTurnsAndExitsClean(t *testing.T) {
 	transcript := fixtureClaudeTranscript(t)
 	dataDir := t.TempDir()
@@ -84,13 +120,13 @@ func TestRun_Claude_HappyPath_AppendsTurnsAndExitsClean(t *testing.T) {
 	fixed := time.Date(2026, 7, 20, 2, 0, 0, 0, time.UTC)
 
 	err := Run(RunOptions{
-		Agent:   "claude",
-		Stdin:   newStdin(`{"session_id":"s-1","transcript_path":"` + transcript + `","cwd":"/ws/proj","hook_event_name":"Stop"}`),
-		Stdout:  &stdout,
-		DataDir: dataDir,
-		Logger:  log,
+		Agent:        "claude",
+		Stdin:        newStdin(`{"session_id":"s-1","transcript_path":"` + transcript + `","cwd":"/ws/proj","hook_event_name":"Stop"}`),
+		Stdout:       &stdout,
+		DataDir:      dataDir,
+		Logger:       log,
 		NewSummarize: func() summarize.Summarizer { return sum },
-		Now:     func() time.Time { return fixed },
+		Now:          func() time.Time { return fixed },
 	})
 	if err != nil {
 		t.Fatalf("Run returned err=%v, expected nil (exit 0 contract)", err)
@@ -145,12 +181,12 @@ func TestRun_Idempotent_RunsAreReSyncs(t *testing.T) {
 	sum := &stubSummarizer{tag: "llm"}
 	opts := func() RunOptions {
 		return RunOptions{
-			Agent:   "claude",
-			Stdin:   newStdin(`{"session_id":"s-2","transcript_path":"` + transcript + `","cwd":"/ws/proj","hook_event_name":"Stop"}`),
-			DataDir: dataDir,
-			Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+			Agent:        "claude",
+			Stdin:        newStdin(`{"session_id":"s-2","transcript_path":"` + transcript + `","cwd":"/ws/proj","hook_event_name":"Stop"}`),
+			DataDir:      dataDir,
+			Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 			NewSummarize: func() summarize.Summarizer { return sum },
-			Now:     func() time.Time { return time.Unix(0, 0) },
+			Now:          func() time.Time { return time.Unix(0, 0) },
 		}
 	}
 
@@ -178,13 +214,13 @@ func TestRun_StopFailure_MarksLastTurnError(t *testing.T) {
 	dataDir := t.TempDir()
 	var stdout bytes.Buffer
 	opts := RunOptions{
-		Agent:   "claude",
-		Stdin:   newStdin(`{"session_id":"s-3","transcript_path":"` + transcript + `","hook_event_name":"StopFailure"}`),
-		Stdout:  &stdout,
-		DataDir: dataDir,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Agent:        "claude",
+		Stdin:        newStdin(`{"session_id":"s-3","transcript_path":"` + transcript + `","hook_event_name":"StopFailure"}`),
+		Stdout:       &stdout,
+		DataDir:      dataDir,
+		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 		NewSummarize: func() summarize.Summarizer { return &stubSummarizer{tag: "h"} },
-		Now:     func() time.Time { return time.Unix(0, 0) },
+		Now:          func() time.Time { return time.Unix(0, 0) },
 	}
 	if err := Run(opts); err != nil {
 		t.Fatal(err)
@@ -210,13 +246,13 @@ func TestRun_Codex_EmitsContinueResponse(t *testing.T) {
 	dataDir := t.TempDir()
 	var stdout bytes.Buffer
 	opts := RunOptions{
-		Agent:   "codex",
-		Stdin:   newStdin(`{"session_id":"s-codex","transcript_path":"` + transcript + `","hook_event_name":"Stop"}`),
-		Stdout:  &stdout,
-		DataDir: dataDir,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Agent:        "codex",
+		Stdin:        newStdin(`{"session_id":"s-codex","transcript_path":"` + transcript + `","hook_event_name":"Stop"}`),
+		Stdout:       &stdout,
+		DataDir:      dataDir,
+		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 		NewSummarize: func() summarize.Summarizer { return &stubSummarizer{tag: "h"} },
-		Now:     func() time.Time { return time.Unix(0, 0) },
+		Now:          func() time.Time { return time.Unix(0, 0) },
 	}
 	if err := Run(opts); err != nil {
 		t.Fatal(err)
@@ -246,10 +282,10 @@ func TestRun_MalformedStdin_DoesNotPanic(t *testing.T) {
 	log, _ := newTestLogger()
 	// Garbage on stdin must not panic or return error.
 	err := Run(RunOptions{
-		Agent:   "claude",
-		Stdin:   newStdin("not-json"),
-		DataDir: t.TempDir(),
-		Logger:  log,
+		Agent:        "claude",
+		Stdin:        newStdin("not-json"),
+		DataDir:      t.TempDir(),
+		Logger:       log,
 		NewSummarize: func() summarize.Summarizer { return &stubSummarizer{tag: "h"} },
 	})
 	if err != nil {

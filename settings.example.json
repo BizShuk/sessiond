@@ -2,6 +2,10 @@
   "_comment": "sessiond settings.json — drop into . / ./conf / ~/.config/superset/ as settings.json. Layered with config.yaml if both present (local wins). See config.example.yaml for env-var mapping.",
 
   "sessiond": {
+    "hooks": {
+      "paused": false,
+      "_paused_doc": "sessiond pause sets true; sessiond resume sets false. Persisted app-wide at ~/.config/superset/settings.json"
+    },
     "summarizer": {
       "provider": "auto",
       "_provider_doc": "auto | heuristic | google",

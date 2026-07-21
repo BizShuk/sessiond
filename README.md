@@ -14,12 +14,16 @@ sessiond install             # dry-run 預覽要註冊的 hook 設定
 sessiond install --apply     # 實際寫入(自動備份 + symlink 警告)
 sessiond uninstall           # dry-run 預覽要移除的 sessiond hooks
 sessiond uninstall --apply   # 備份後只移除 sessiond-owned hooks
+sessiond pause               # 立即暫停所有 hook ingestion
+sessiond resume              # 恢復 hook ingestion
 sessiond --version
 ```
 
 子命令採 cobra 風格(spf13/cobra)。`hook` 永遠 `exit 0`,任何錯誤只 log stderr,絕不阻擋 agent。
 
 hook 是 best-effort:任何錯誤只寫 stderr 並 `exit 0`,絕不阻擋或拖慢 agent(`exit 2` 會 block Claude 的 Stop)。
+
+`pause` / `resume` 透過 app-level `~/.config/superset/settings.json` 的 `sessiond.hooks.paused` 控制所有 project 的 ingestion；這與 project `.claude/settings.json` / `.codex/config.toml` 的 hook wiring 分離。`pause` 立即生效且不 flush 既有 session；paused 期間的 hook 會被忽略，`resume` 不會重播。Claude paused hook 保持空 stdout，Codex 仍回覆 `{"continue": true}`，因此不會阻擋 agent。
 
 ## 輸出契約 (Storage contract)
 

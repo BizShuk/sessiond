@@ -76,9 +76,9 @@ func TestParseClaudeTurns_stopSequenceCountsAsFinal(t *testing.T) {
 	}
 }
 
-func TestParseClaudeTurns_fallsBackWhenNoFinalText(t *testing.T) {
-	// Interrupted turn: every assistant record is mid-tool, so there is no
-	// end_turn text. The narration must still be kept rather than dropped.
+func TestParseClaudeTurns_dropsIntermediateTextWhenNoFinalText(t *testing.T) {
+	// Interrupted turn: every assistant record is mid-tool, so there is no final
+	// response content to send to the summarizer.
 	jsonl := `{"type":"user","message":{"role":"user","content":"q"}}
 {"type":"assistant","message":{"role":"assistant","stop_reason":"tool_use","content":[{"type":"text","text":"partial work"}]}}
 `
@@ -86,8 +86,8 @@ func TestParseClaudeTurns_fallsBackWhenNoFinalText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(turns) != 1 || turns[0].AssistantText != "partial work" {
-		t.Fatalf("got %+v, want fallback to intermediate text", turns)
+	if len(turns) != 1 || turns[0].AssistantText != "" {
+		t.Fatalf("got %+v, want intermediate text omitted", turns)
 	}
 }
 
@@ -121,6 +121,28 @@ func TestParseClaudeTurns_perTurnAccumulatorIsReset(t *testing.T) {
 	}
 	if turns[0].AssistantText != "a1" || turns[1].AssistantText != "a2" {
 		t.Errorf("turns = %q / %q, want a1 / a2", turns[0].AssistantText, turns[1].AssistantText)
+	}
+}
+
+func TestParseClaudeTurns_sumsUsageAcrossModelCallsWithoutDuplicateResponses(t *testing.T) {
+	jsonl := `{"type":"user","message":{"role":"user","content":"q"}}
+{"type":"assistant","uuid":"record-1","message":{"id":"response-1","role":"assistant","stop_reason":"tool_use","usage":{"input_tokens":10,"cache_creation_input_tokens":2,"cache_read_input_tokens":3,"output_tokens":4},"content":[{"type":"text","text":"intermediate"}]}}
+{"type":"assistant","uuid":"record-2","message":{"id":"response-1","role":"assistant","stop_reason":"tool_use","usage":{"input_tokens":10,"cache_creation_input_tokens":2,"cache_read_input_tokens":3,"output_tokens":4},"content":[{"type":"tool_use","name":"Bash"}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"ignored"}]}}
+{"type":"assistant","uuid":"record-3","message":{"id":"response-2","role":"assistant","stop_reason":"end_turn","usage":{"input_tokens":20,"cache_creation_input_tokens":0,"cache_read_input_tokens":5,"output_tokens":6},"content":[{"type":"text","text":"final answer"}]}}
+`
+	turns, _, err := ParseClaudeTurns(write(t, "usage.jsonl", jsonl))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(turns) != 1 {
+		t.Fatalf("got %d turns, want 1", len(turns))
+	}
+	if turns[0].AssistantText != "final answer" {
+		t.Errorf("AssistantText = %q, want final answer", turns[0].AssistantText)
+	}
+	if turns[0].TokenCount != 50 { // response-1: 19, response-2: 31
+		t.Errorf("TokenCount = %d, want 50", turns[0].TokenCount)
 	}
 }
 
@@ -165,6 +187,46 @@ func TestParseCodexTurns_basic(t *testing.T) {
 	}
 	if turns[1].UserText != "and again" || turns[1].AssistantText != "ok" {
 		t.Errorf("turn1 = %+v", turns[1])
+	}
+}
+
+func TestParseCodexTurns_usesFinalResponseAndSumsTurnTokens(t *testing.T) {
+	jsonl := `{"type":"session_meta","timestamp":"t0","payload":{"cwd":"/ws/cx","session_id":"s1"}}
+{"type":"event_msg","timestamp":"t1","payload":{"type":"user_message","message":"do the thing"}}
+{"type":"event_msg","timestamp":"t1","payload":{"type":"agent_message","message":"checking first","phase":"commentary"}}
+{"type":"response_item","timestamp":"t1","payload":{"type":"custom_tool_call","name":"exec"}}
+{"type":"event_msg","timestamp":"t1","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":90,"cached_input_tokens":50,"output_tokens":10,"reasoning_output_tokens":4,"total_tokens":100}}}}
+{"type":"response_item","timestamp":"t1","payload":{"type":"custom_tool_call_output","output":"ignored"}}
+{"type":"event_msg","timestamp":"t1","payload":{"type":"agent_message","message":"event final","phase":"final_answer"}}
+{"type":"event_msg","timestamp":"t1","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":20,"cached_input_tokens":10,"output_tokens":5,"reasoning_output_tokens":2,"total_tokens":25}}}}
+{"type":"event_msg","timestamp":"t1","payload":{"type":"task_complete","last_agent_message":"authoritative final"}}
+`
+	turns, _, err := ParseCodexTurns(write(t, "final-tokens.jsonl", jsonl))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(turns) != 1 {
+		t.Fatalf("got %d turns, want 1", len(turns))
+	}
+	if turns[0].AssistantText != "authoritative final" {
+		t.Errorf("AssistantText = %q, want authoritative final", turns[0].AssistantText)
+	}
+	if turns[0].TokenCount != 125 {
+		t.Errorf("TokenCount = %d, want 125", turns[0].TokenCount)
+	}
+}
+
+func TestParseCodexTurns_tokenCountFallsBackToInputPlusOutput(t *testing.T) {
+	jsonl := `{"type":"event_msg","payload":{"type":"user_message","message":"q"}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":12,"cached_input_tokens":8,"output_tokens":3,"reasoning_output_tokens":2}}}}
+{"type":"event_msg","payload":{"type":"task_complete","last_agent_message":"done"}}
+`
+	turns, _, err := ParseCodexTurns(write(t, "fallback-tokens.jsonl", jsonl))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(turns) != 1 || turns[0].TokenCount != 15 {
+		t.Fatalf("got %+v, want TokenCount 15", turns)
 	}
 }
 

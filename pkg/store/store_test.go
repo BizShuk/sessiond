@@ -17,7 +17,9 @@ func meta() model.Meta {
 func turns(n int) []model.Turn {
 	out := make([]model.Turn, n)
 	for i := range out {
-		out[i] = model.Turn{Index: i + 1, Summary: "s", User: "u", Source: "heuristic", Status: "ok"}
+		out[i] = model.Turn{
+			Index: i + 1, Summary: "s", User: "u", Source: "heuristic", Status: "ok", TokenCount: 100 + i,
+		}
 	}
 	return out
 }
@@ -56,6 +58,13 @@ func TestSync_createsMetaThenAppendsIncrementally(t *testing.T) {
 	}
 	if !strings.Contains(got[0], `"type":"meta"`) {
 		t.Errorf("line0 not meta: %s", got[0])
+	}
+	var firstTurn model.Turn
+	if err := json.Unmarshal([]byte(got[1]), &firstTurn); err != nil {
+		t.Fatal(err)
+	}
+	if firstTurn.TokenCount != 100 {
+		t.Errorf("first turn token_count = %d, want 100", firstTurn.TokenCount)
 	}
 
 	// second fire: now 4 turns total → only 2 new appended, no duplicate meta

@@ -23,15 +23,17 @@ func fixtureClaudeTranscript(t *testing.T) string {
 		{"type": "user", "cwd": "/ws/proj", "timestamp": "2026-07-20T01:00:00Z",
 			"message": map[string]any{"role": "user", "content": "first prompt"}},
 		{"type": "assistant", "timestamp": "2026-07-20T01:00:01Z",
-			"message": map[string]any{"role": "assistant", "content": []any{
-				map[string]any{"type": "text", "text": "answer one"}}}},
+			"message": map[string]any{"id": "response-1", "role": "assistant", "stop_reason": "end_turn",
+				"usage": map[string]any{"input_tokens": 10, "output_tokens": 2}, "content": []any{
+					map[string]any{"type": "text", "text": "answer one"}}}},
 		{"type": "user", "isSidechain": true, "timestamp": "2026-07-20T01:00:02Z",
 			"message": map[string]any{"role": "user", "content": "ignored sidechain"}},
 		{"type": "user", "timestamp": "2026-07-20T01:00:03Z",
 			"message": map[string]any{"role": "user", "content": "second prompt"}},
 		{"type": "assistant", "timestamp": "2026-07-20T01:00:04Z",
-			"message": map[string]any{"role": "assistant", "content": []any{
-				map[string]any{"type": "text", "text": "answer two"}}}},
+			"message": map[string]any{"id": "response-2", "role": "assistant", "stop_reason": "end_turn",
+				"usage": map[string]any{"input_tokens": 20, "output_tokens": 3}, "content": []any{
+					map[string]any{"type": "text", "text": "answer two"}}}},
 	}
 	return writeJSONL(t, "c.jsonl", lines)
 }
@@ -55,12 +57,14 @@ func writeJSONL(t *testing.T, name string, lines []map[string]any) string {
 
 // stubSummarizer records what it was asked and returns a fixed result.
 type stubSummarizer struct {
-	calls int
-	tag   string // value put in Summary, useful to prove which backend ran
+	calls          int
+	tag            string // value put in Summary, useful to prove which backend ran
+	assistantTexts []string
 }
 
 func (s *stubSummarizer) Summarize(userText, assistantText string) summarize.Result {
 	s.calls++
+	s.assistantTexts = append(s.assistantTexts, assistantText)
 	return summarize.Result{
 		User:    userText,
 		Summary: s.tag + ":" + userText,
@@ -164,11 +168,17 @@ func TestRun_Claude_HappyPath_AppendsTurnsAndExitsClean(t *testing.T) {
 	if turn1.Index != 1 || turn1.Summary != "llm:first prompt" || turn1.Event != "Stop" {
 		t.Errorf("turn1 = %+v", turn1)
 	}
-	if turn2.Index != 2 || turn2.Summary != "llm:second prompt" {
+	if turn1.TokenCount != 12 {
+		t.Errorf("turn1.TokenCount = %d, want 12", turn1.TokenCount)
+	}
+	if turn2.Index != 2 || turn2.Summary != "llm:second prompt" || turn2.TokenCount != 23 {
 		t.Errorf("turn2 = %+v", turn2)
 	}
 	if sum.calls != 2 {
 		t.Errorf("summarizer called %d times, want 2", sum.calls)
+	}
+	if len(sum.assistantTexts) != 2 || sum.assistantTexts[0] != "answer one" || sum.assistantTexts[1] != "answer two" {
+		t.Errorf("summarizer assistant inputs = %q, want final answers only", sum.assistantTexts)
 	}
 	if !strings.Contains(logBuf.String(), "session synced") {
 		t.Errorf("log missing success line, got: %s", logBuf.String())
@@ -241,17 +251,20 @@ func TestRun_Codex_EmitsContinueResponse(t *testing.T) {
 	transcript := writeJSONL(t, "r.jsonl", []map[string]any{
 		{"type": "session_meta", "timestamp": "t0", "payload": map[string]any{"cwd": "/ws/cx"}},
 		{"type": "event_msg", "timestamp": "t1", "payload": map[string]any{"type": "user_message", "message": "do x"}},
-		{"type": "event_msg", "timestamp": "t1", "payload": map[string]any{"type": "agent_message", "message": "ok"}},
+		{"type": "event_msg", "timestamp": "t1", "payload": map[string]any{"type": "agent_message", "message": "checking", "phase": "commentary"}},
+		{"type": "event_msg", "timestamp": "t1", "payload": map[string]any{"type": "token_count", "info": map[string]any{"last_token_usage": map[string]any{"total_tokens": 42}}}},
+		{"type": "event_msg", "timestamp": "t1", "payload": map[string]any{"type": "task_complete", "last_agent_message": "ok"}},
 	})
 	dataDir := t.TempDir()
 	var stdout bytes.Buffer
+	sum := &stubSummarizer{tag: "h"}
 	opts := RunOptions{
 		Agent:        "codex",
 		Stdin:        newStdin(`{"session_id":"s-codex","transcript_path":"` + transcript + `","hook_event_name":"Stop"}`),
 		Stdout:       &stdout,
 		DataDir:      dataDir,
 		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
-		NewSummarize: func() summarize.Summarizer { return &stubSummarizer{tag: "h"} },
+		NewSummarize: func() summarize.Summarizer { return sum },
 		Now:          func() time.Time { return time.Unix(0, 0) },
 	}
 	if err := Run(opts); err != nil {
@@ -259,6 +272,16 @@ func TestRun_Codex_EmitsContinueResponse(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), `"continue": true`) {
 		t.Errorf("codex stdout missing continue:true, got %q", stdout.String())
+	}
+	if len(sum.assistantTexts) != 1 || sum.assistantTexts[0] != "ok" {
+		t.Errorf("summarizer assistant inputs = %q, want final response only", sum.assistantTexts)
+	}
+	files, _ := filepath.Glob(filepath.Join(dataDir, "sessions", "*", "s-codex.jsonl"))
+	lines := readLines(t, files[0])
+	var turn model.Turn
+	_ = json.Unmarshal([]byte(lines[1]), &turn)
+	if turn.TokenCount != 42 {
+		t.Errorf("turn.TokenCount = %d, want 42", turn.TokenCount)
 	}
 }
 

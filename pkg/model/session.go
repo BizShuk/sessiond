@@ -17,7 +17,7 @@ const SCHEMA_VERSION = 1
 
 // Meta is the first line of a session file. Written once, never appended twice.
 type Meta struct {
-	Type          RecordType `json:"type"` // always "meta"
+	Type          RecordType `json:"type"`  // always "meta"
 	Agent         string     `json:"agent"` // claude | codex
 	SessionID     string     `json:"session_id"`
 	WorkspacePath string     `json:"workspace_path"`
@@ -47,14 +47,15 @@ type ToolCall struct {
 
 // Turn is one appended line: a single summarized turn of the session.
 type Turn struct {
-	Type    RecordType `json:"type"` // always "turn"
-	Index   int        `json:"index"` // 1-based, monotonic
-	TurnID  string     `json:"turn_id,omitempty"`
-	Event   string     `json:"event"` // Stop | StopFailure | SubagentStop | TaskCompleted
-	User    string     `json:"user"` // cleaned user prompt (short)
-	Summary string     `json:"summary"` // one-line summary
-	Source  string     `json:"source"` // heuristic | llm | native
-	Status  string     `json:"status"` // ok | error
-	At      string     `json:"at"` // ISO-8601 timestamp
-	Tools   []ToolCall `json:"tools,omitempty"`
+	Type       RecordType `json:"type"`  // always "turn"
+	Index      int        `json:"index"` // 1-based, monotonic
+	TurnID     string     `json:"turn_id,omitempty"`
+	Event      string     `json:"event"`                 // Stop | StopFailure | SubagentStop | TaskCompleted
+	User       string     `json:"user"`                  // cleaned user prompt (short)
+	Summary    string     `json:"summary"`               // one-line summary
+	Source     string     `json:"source"`                // heuristic | llm | native
+	Status     string     `json:"status"`                // ok | error
+	At         string     `json:"at"`                    // ISO-8601 timestamp
+	TokenCount int        `json:"token_count,omitempty"` // all model calls in this turn
+	Tools      []ToolCall `json:"tools,omitempty"`
 }

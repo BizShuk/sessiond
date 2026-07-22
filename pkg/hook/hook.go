@@ -198,14 +198,15 @@ func buildTurns(s summarize.Summarizer, raws []ingest.RawTurn, p hookpayload.Pay
 			at = time.Now().UTC().Format(time.RFC3339)
 		}
 		out = append(out, model.Turn{
-			Index:   i + 1,
-			TurnID:  turnID,
-			Event:   p.HookEventName,
-			User:    res.User,
-			Summary: res.Summary,
-			Source:  res.Source,
-			Status:  status,
-			At:      at,
+			Index:      i + 1,
+			TurnID:     turnID,
+			Event:      p.HookEventName,
+			User:       res.User,
+			Summary:    res.Summary,
+			Source:     res.Source,
+			Status:     status,
+			At:         at,
+			TokenCount: r.TokenCount,
 		})
 	}
 	return out

@@ -40,7 +40,7 @@ flowchart LR
 | discriminator | 頂層 `type` | 頂層 `type` + `payload.type` 雙層 | 頂層 `type` |
 | 助手內容 | `message.content[]` blocks | `event_msg/agent_message` + `response_item` | 只有摘要 |
 | 工具軌跡 | `tool_use` / `tool_result` | `custom_tool_call` / `patch_apply_end` | `tools[]` 欄位已預留但未填 |
-| token 用量 | `message.usage` | `event_msg/token_count` | 無 |
+| token 用量 | `message.usage` | `event_msg/token_count` | 每 turn 加總為 `token_count` |
 | 是否可重播 | 是 | 是 | 否（有損摘要） |
 | schema 版本標記 | 無（靠 `version` 欄位推斷） | `cli_version` | `schema_version: 1` |
 
@@ -54,7 +54,8 @@ flowchart LR
 - 壓縮體積：一個 session 從數 MB 降到數 KB，TreeView 可即時掃描
 - 附加語意：`resume` 指令、LLM 摘要、`title` 都是上游 transcript 沒有的
 
-代價是有損：assistant 全文、tool 軌跡、token 用量都不落地。詳見 [`sessiond-store.md`](sessiond-store.md) 的「已丟棄的資料」章節。
+代價是有損：assistant 全文與 tool 軌跡不落地；token 只保留每 turn 的加總，不保留分類明細。
+詳見 [`sessiond-store.md`](sessiond-store.md) 的「資料取捨」章節。
 
 ## 相關程式碼 (Related Code)
 

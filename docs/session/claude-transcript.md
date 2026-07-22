@@ -218,13 +218,16 @@ and any(b["type"] == "text" for b in r["message"]["content"])
 
 `end_turn` 的記錄不保證帶 `text`：本檔 12 筆 `end_turn` 中有 5 筆只含 `thinking` block、`text` 為空，因此 `any(text)` 這個條件不可省。
 
-`ingest/claude.go` 已實作此規則（`isTurnFinal`），策略為`優先取 final、無 final 時 fallback 到全部`：
+`ingest/claude.go` 已實作此規則（`isTurnFinal`），策略為`只取 final`：
 
-- 每個 turn 同時累積 `final`（只收 `end_turn` / `stop_sequence` 的 text）與 `anyText`（收全部 text）
-- flush 時 `final` 非空就用 `final`，否則退回 `anyText`
+- 每個 turn 只累積 `end_turn` / `stop_sequence` 的 text
+- commentary、thinking、tool call/result 不會進入摘要器
+- 沒有 final response 時，assistant text 保持空白，摘要器只根據 user prompt 工作
 - `stop_reason` 缺席（舊 transcript）視為 final，避免行為倒退
 
-fallback 是必要的：turn 被中斷時整輪沒有任何 `end_turn` 記錄，若硬性只收 final 會得到空字串，摘要器就沒有素材。實測跑真實 transcript 的 15 個 turn，最後一個進行中的 turn 正是靠 fallback 取到 503 字元的過程文字。
+token 用量與摘要文字分開處理：同一 turn 內所有 model call 的 `message.usage` 都會納入，
+但 Claude 可能把同一 response 拆成多筆 transcript record，因此先依 `message.id` 去重，再加總
+`input_tokens + cache_creation_input_tokens + cache_read_input_tokens + output_tokens`。
 
 ### `system` — `stop_hook_summary`
 
@@ -305,7 +308,8 @@ hook 執行後的結算，是驗證 hook 是否真的跑起來最直接的證據
        cleanUserText(text) == ""  → 丟棄（system 包裹）
        否則                        → flush 前一筆，開新 RawTurn
   4. type=assistant && role=assistant:
-       只取 content[].type == "text"，串接進當前 RawTurn.AssistantText
+       message.usage 依 message.id 去重後加進 RawTurn.TokenCount
+       只有 final response 的 text 才串接進 RawTurn.AssistantText
   5. cwd 取第一個非空值
 ```
 
@@ -313,7 +317,8 @@ hook 執行後的結算，是驗證 hook 是否真的跑起來最直接的證據
 
 `cleanUserText` 會剔除含以下標記的訊息：`local-command-caveat`、`<environment_context>`、`<user_instructions>`、`<recommended_plugins>`、`<permissions instructions>`、開頭是 `# agents.md`、開頭是 `caveat:`。
 
-一個 turn 的邊界：從一個真 prompt 開始，吸收其後所有 assistant text，直到下一個真 prompt。
+一個 turn 的邊界：從一個真 prompt 開始，累計其後所有 model call 的 usage，但只保留 final response text，
+直到下一個真 prompt。
 
 ## 已知落差 (Known Gaps)
 
@@ -321,7 +326,7 @@ hook 執行後的結算，是驗證 hook 是否真的跑起來最直接的證據
 | --- | --- |
 | `tool_use` / `tool_result` 完全不解析 | store 的 `tools[]` 欄位永遠為空，無法追蹤改了哪些檔 |
 | `thinking` block 不採用 | 摘要看不到模型推理脈絡 |
-| `message.usage` 不採用 | 無 token 成本追蹤 |
+| `message.usage` 分類明細不落地 | store 只保留每 turn 加總後的 `token_count` |
 | `ai-title` 不採用 | 標題品質低於 Claude 自產的 |
 | `stop_hook_summary` 不採用 | 無 hook 健康度指標 |
 | `-` 目錄編碼不可逆 | 無法從目錄名精確還原原始路徑 |

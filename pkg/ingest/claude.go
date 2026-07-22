@@ -21,26 +21,22 @@ func ParseClaudeTurns(path string) (turns []RawTurn, cwd string, err error) {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024) // tolerate long lines
 
-	// A turn's assistant text is collected twice: `final` holds only the text of
-	// records that ended the turn (stop_reason end_turn/stop_sequence), `any`
-	// holds every text block. The final text is the actual answer; intermediate
-	// text is narration emitted before a tool call ("let me check X first"), and
-	// across transcripts it outnumbers final text ~7:1. We prefer final, but fall
-	// back to any so an interrupted turn (no end_turn record) still yields text.
+	// Only text from a response that ended the turn is retained. Intermediate
+	// commentary, tool calls, tool results, and thinking are deliberately omitted
+	// from AssistantText so the summarizer receives the smallest useful payload.
+	// Usage is different: every model call belongs to the turn's cost, including
+	// calls around tools, so their token counts are aggregated separately.
 	var cur *RawTurn
-	var final, anyText strings.Builder
+	var final strings.Builder
+	usageByMessage := make(map[string]int)
 	flush := func() {
 		if cur != nil {
-			picked := final.String()
-			if strings.TrimSpace(picked) == "" {
-				picked = anyText.String()
-			}
-			cur.AssistantText = strings.TrimSpace(picked)
+			cur.AssistantText = strings.TrimSpace(final.String())
 			turns = append(turns, *cur)
 			cur = nil
 		}
 		final.Reset()
-		anyText.Reset()
+		clear(usageByMessage)
 	}
 
 	for sc.Scan() {
@@ -77,12 +73,11 @@ func ParseClaudeTurns(path string) (turns []RawTurn, cwd string, err error) {
 			flush()
 			cur = &RawTurn{UserText: clean, At: ts}
 		case typ == "assistant" && role == "assistant":
-			if cur == nil || text == "" {
+			if cur == nil {
 				continue
 			}
-			anyText.WriteString(text)
-			anyText.WriteByte(' ')
-			if isTurnFinal(msg) {
+			addClaudeUsage(cur, usageByMessage, o, msg)
+			if text != "" && isTurnFinal(msg) {
 				final.WriteString(text)
 				final.WriteByte(' ')
 			}
@@ -90,6 +85,36 @@ func ParseClaudeTurns(path string) (turns []RawTurn, cwd string, err error) {
 	}
 	flush()
 	return turns, cwd, sc.Err()
+}
+
+// addClaudeUsage adds one model response's usage to a turn. Claude can emit
+// multiple transcript records for the same response (for example one text
+// record and one tool_use record) with the same message.id and repeated usage.
+// Keeping the greatest observed total per message avoids double counting while
+// still handling a later record whose usage was updated.
+func addClaudeUsage(turn *RawTurn, usageByMessage map[string]int, record, msg map[string]any) {
+	usage, ok := msg["usage"].(map[string]any)
+	if !ok {
+		return
+	}
+	total := intField(usage, "input_tokens") +
+		intField(usage, "cache_creation_input_tokens") +
+		intField(usage, "cache_read_input_tokens") +
+		intField(usage, "output_tokens")
+
+	id, _ := msg["id"].(string)
+	if id == "" {
+		id, _ = record["uuid"].(string)
+	}
+	if id == "" {
+		turn.TokenCount += total
+		return
+	}
+	previous := usageByMessage[id]
+	if total > previous {
+		turn.TokenCount += total - previous
+		usageByMessage[id] = total
+	}
 }
 
 // isTurnFinal reports whether an assistant message ended the turn rather than

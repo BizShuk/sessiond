@@ -11,6 +11,7 @@ type RawTurn struct {
 	UserText      string
 	AssistantText string
 	At            string
+	TokenCount    int
 }
 
 var tagRe = regexp.MustCompile(`<[^>]+>`)
@@ -36,4 +37,17 @@ func cleanUserText(raw string) string {
 		return ""
 	}
 	return s
+}
+
+func intField(m map[string]any, key string) int {
+	switch v := m[key].(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	default:
+		return 0
+	}
 }

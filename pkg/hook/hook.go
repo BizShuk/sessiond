@@ -50,6 +50,12 @@ type RunOptions struct {
 // opts.Logger. The agent may be "claude" or "codex"; any other value yields a
 // logged error and a clean exit.
 func Run(opts RunOptions) error {
+	return RunContext(context.Background(), opts)
+}
+
+// RunContext executes one hook fire and allows a rate-limit pause to be
+// cancelled when the host process is shutting down.
+func RunContext(ctx context.Context, opts RunOptions) error {
 	opts = withDefaults(opts)
 	log := opts.Logger
 
@@ -88,9 +94,19 @@ func Run(opts RunOptions) error {
 	existing := store.CountTurns(opts.DataDir, meta)
 	if existing == 0 {
 		// Title uses cheap heuristic so we never spend an LLM call on a label.
-		meta.Title = summarize.Heuristic{}.Summarize(raws[0].UserText, "").Summary
+		res, _ := summarize.Heuristic{}.Summarize(ctx, raws[0].UserText, "")
+		meta.Title = res.Summary
 	}
-	turns := buildTurns(summarizer, raws, p, existing)
+	turns, err := buildTurns(ctx, summarizer, raws, p, existing)
+	if err != nil {
+		log.Warn(
+			"summarize queued turns failed",
+			"agent", opts.Agent,
+			"session_id", p.SessionID,
+			"err", err,
+		)
+		return nil
+	}
 
 	n, err := store.Sync(opts.DataDir, meta, turns)
 	if err != nil {
@@ -178,13 +194,44 @@ func extractTurns(opts RunOptions, p hookpayload.Payload) ([]ingest.RawTurn, str
 	}
 }
 
-// buildTurns summarizes each raw turn beyond `existing` into a persistable
-// model.Turn. On a StopFailure event the final turn is marked error.
-func buildTurns(s summarize.Summarizer, raws []ingest.RawTurn, p hookpayload.Payload, existing int) []model.Turn {
-	out := make([]model.Turn, 0)
+// buildTurns queues each raw turn beyond existing for FIFO summarization.
+func buildTurns(
+	ctx context.Context,
+	s summarize.Summarizer,
+	raws []ingest.RawTurn,
+	p hookpayload.Payload,
+	existing int,
+) ([]model.Turn, error) {
+	if existing >= len(raws) {
+		return nil, nil
+	}
+	events := make([]summarize.Event, 0, len(raws)-existing)
 	for i := existing; i < len(raws); i++ {
 		r := raws[i]
-		res := s.Summarize(r.UserText, r.AssistantText)
+		events = append(events, summarize.Event{
+			UserText:      r.UserText,
+			AssistantText: r.AssistantText,
+		})
+	}
+	results, err := summarize.ProcessQueue(ctx, s, events)
+	if err != nil {
+		return nil, fmt.Errorf("process summary queue: %w", err)
+	}
+	return turnsFromResults(raws, results, p, existing), nil
+}
+
+// turnsFromResults maps queue results back to the append-only store contract.
+// On a StopFailure event the final turn is marked error.
+func turnsFromResults(
+	raws []ingest.RawTurn,
+	results []summarize.Result,
+	p hookpayload.Payload,
+	existing int,
+) []model.Turn {
+	out := make([]model.Turn, 0, len(results))
+	for offset, res := range results {
+		i := existing + offset
+		r := raws[i]
 		status := "ok"
 		turnID := ""
 		if i == len(raws)-1 { // latest turn carries the event's turn id / status

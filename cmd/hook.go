@@ -18,7 +18,7 @@ var HookCmd = &cobra.Command{
 		if agent != "claude" && agent != "codex" {
 			return fmt.Errorf("unknown agent %q (want claude|codex)", agent)
 		}
-		hook.Run(hook.RunOptions{Agent: agent})
+		hook.RunContext(cmd.Context(), hook.RunOptions{Agent: agent})
 		return nil
 	},
 }

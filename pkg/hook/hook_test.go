@@ -2,7 +2,9 @@ package hook
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -11,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bizshuk/sessiond/pkg/hookpayload"
+	"github.com/bizshuk/sessiond/pkg/ingest"
 	"github.com/bizshuk/sessiond/pkg/model"
 	"github.com/bizshuk/sessiond/pkg/summarize"
 )
@@ -62,14 +66,14 @@ type stubSummarizer struct {
 	assistantTexts []string
 }
 
-func (s *stubSummarizer) Summarize(userText, assistantText string) summarize.Result {
+func (s *stubSummarizer) Summarize(_ context.Context, userText, assistantText string) (summarize.Result, error) {
 	s.calls++
 	s.assistantTexts = append(s.assistantTexts, assistantText)
 	return summarize.Result{
 		User:    userText,
 		Summary: s.tag + ":" + userText,
 		Source:  "stub",
-	}
+	}, nil
 }
 
 func newTestLogger() (*slog.Logger, *bytes.Buffer) {
@@ -78,6 +82,27 @@ func newTestLogger() (*slog.Logger, *bytes.Buffer) {
 }
 
 func newStdin(s string) io.Reader { return strings.NewReader(s) }
+
+type rateLimitedSummarizer struct{}
+
+func (rateLimitedSummarizer) Summarize(_ context.Context, _, _ string) (summarize.Result, error) {
+	return summarize.Result{}, summarize.ErrRateLimited
+}
+
+func TestBuildTurnsRateLimitedQueueHonorsContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	raws := []ingest.RawTurn{{
+		UserText:      "pending",
+		AssistantText: "answer",
+	}}
+
+	_, err := buildTurns(ctx, rateLimitedSummarizer{}, raws, hookpayload.Payload{}, 0)
+
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context.Canceled", err)
+	}
+}
 
 func TestRun_PausedSkipsIngestionAndKeepsAgentResponse(t *testing.T) {
 	for _, tc := range []struct {

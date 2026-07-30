@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	github.com/bizshuk/agentsdk v0.0.0-20260720171156-c4107072037b
+	github.com/bizshuk/agentsdk v0.0.29
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gocarina/gocsv v0.0.0-20260523204920-c264028e67ea // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect

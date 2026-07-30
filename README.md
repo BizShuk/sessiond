@@ -4,7 +4,8 @@
 把每個 turn 濃縮成一行摘要,append 到 per-session JSONL,供 `superset` VSCode side panel 讀取。
 
 獨立 Go module(`github.com/bizshuk/sessiond`),import 框架層 `gosdk`(config/data dir)。
-`gemma` 摘要(`agentSDK provider/google`)為後續階段;目前用零成本 heuristic(取 user prompt)。
+有 `GOOGLE_API_KEY` 時使用 `gemma` 摘要(`agentSDK provider/google`)，否則使用零成本
+heuristic(取 user prompt)。
 
 ## 用法 (Usage)
 
@@ -19,9 +20,11 @@ sessiond resume              # 恢復 hook ingestion
 sessiond --version
 ```
 
-子命令採 cobra 風格(spf13/cobra)。`hook` 永遠 `exit 0`,任何錯誤只 log stderr,絕不阻擋 agent。
+子命令採 cobra 風格(spf13/cobra)。`hook` 永遠 `exit 0`，任何錯誤只 log stderr；
+LLM rate limit 是例外的等待路徑，會 pause 1 分鐘後重試。
 
-hook 是 best-effort:任何錯誤只寫 stderr 並 `exit 0`,絕不阻擋或拖慢 agent(`exit 2` 會 block Claude 的 Stop)。
+hook 是 best-effort：不會因 ingestion error 回傳非零 exit code（`exit 2` 會 block Claude 的
+Stop）。但為了不丟失 rate-limited LLM event，HTTP 429 會讓目前 hook 同步等待後再處理。
 
 `pause` / `resume` 透過 gosdk `config --update` 寫入 app-level `~/.config/superset/settings.local.json` 的 `sessiond.hooks.paused`，控制所有 project 的 ingestion；這與 project `.claude/settings.json` / `.codex/config.toml` 的 hook wiring 分離。`pause` 立即生效且不 flush 既有 session；paused 期間的 hook 會被忽略，`resume` 不會重播。Claude paused hook 保持空 stdout，Codex 仍回覆 `{"continue": true}`，因此不會阻擋 agent。
 
@@ -74,7 +77,10 @@ go build -o ~/.local/bin/sessiond .
 ## 摘要後端 (Summarizer)
 
 無 `GOOGLE_API_KEY` 時用 heuristic(取 user prompt);有 key 時自動切 `gemma`(`agentSDK provider/google`),
-失敗/逾時/空回覆自動降級 heuristic。只摘要`新增`的 turn(每次 hook 約 1 次 LLM 呼叫)。
+非 rate-limit 的失敗、逾時或空回覆自動降級 heuristic。新增 turns 以 FIFO queue 依序摘要；
+HTTP 429 時保留 queue head、pause 固定 1 分鐘後重試，後續 event 不會越過它。若等待期間
+process context 被取消，本批不寫入 store，下一次 hook 會從 transcript 與既有 turn count
+重新取得未完成 events。
 
 | env | 預設 | 用途 |
 | --- | --- | --- |
@@ -85,7 +91,8 @@ go build -o ~/.local/bin/sessiond .
 ## 狀態 (Status)
 
 - ✅ Claude hook + Codex hook ingest → JSONL(冪等,只摘要新增 turn)
-- ✅ `gemma` 摘要後端(`internal/summarize/gemini.go`);加 `GOOGLE_API_KEY` 即生效,否則 heuristic
+- ✅ `gemma` 摘要後端(`pkg/summarize/gemini.go`);加 `GOOGLE_API_KEY` 即生效,否則 heuristic
+- ✅ LLM event FIFO queue；HTTP 429 pause 1 分鐘後重試 queue head
 - ⏸ VSCode `superset/src/sessions/`:讀本契約 + TreeView + resume-in-terminal
 
 設計全文見 [`../plans/2026-07-19-multi-agent-session-summary.md`](../plans/2026-07-19-multi-agent-session-summary.md)。

@@ -32,7 +32,7 @@ func TestSummarizerImplementationsUseDedicatedFiles(t *testing.T) {
 	}
 
 	want := map[string]string{
-		"Gemini":    "gemini.go",
+		"LLM":       "llm.go",
 		"Heuristic": "heuristic.go",
 	}
 	for receiver, filename := range want {

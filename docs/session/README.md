@@ -66,6 +66,6 @@ flowchart LR
 | `pkg/sessiond/pkg/ingest/text.go` | `RawTurn` 與 `cleanUserText` 共用清洗 |
 | `pkg/sessiond/pkg/model/model.go` | store schema 契約 |
 | `pkg/sessiond/pkg/store/store.go` | append-only 寫入與冪等 |
-| `pkg/sessiond/pkg/summarize/` | Heuristic / Gemini 摘要器 |
+| `pkg/sessiond/pkg/summarize/` | Heuristic / LLM 摘要器（provider-agnostic） |
 | `pkg/sessiond/pkg/hook/hook.go` | hook 進入點，串接以上全部 |
 | `src/sessions/` | extension 端只讀渲染 |

@@ -150,13 +150,22 @@ func withDefaults(o RunOptions) RunOptions {
 	}
 	if o.NewSummarize == nil {
 		o.NewSummarize = func() summarize.Summarizer {
-			provider := strings.ToLower(sessiondcfg.SummarizerProvider())
-			if provider == "heuristic" || (provider == "auto" && os.Getenv("GOOGLE_API_KEY") == "") {
+			providerName := strings.ToLower(sessiondcfg.SummarizerProvider())
+			if providerName == "heuristic" {
 				return summarize.Heuristic{}
 			}
-			g, err := summarize.NewGemini(context.Background(), sessiondcfg.SummarizerModel(), summarize.Heuristic{})
+			if !summarize.IsProviderConfigured(providerName) {
+				if providerName != "auto" {
+					o.Logger.Warn("summarizer provider not configured, using heuristic", "provider", providerName)
+				}
+				return summarize.Heuristic{}
+			}
+			g, err := summarize.NewLLM(summarize.LLMOptions{
+				Provider: providerName,
+				Model:    sessiondcfg.SummarizerModel(),
+			}, summarize.Heuristic{})
 			if err != nil {
-				o.Logger.Warn("gemma unavailable, using heuristic", "err", err)
+				o.Logger.Warn("LLM provider unavailable, using heuristic", "provider", providerName, "err", err)
 				return summarize.Heuristic{}
 			}
 			return g
@@ -281,7 +290,7 @@ func writeResponse(w io.Writer, agent string) {
 }
 
 func sourceOf(s summarize.Summarizer) string {
-	if _, ok := s.(*summarize.Gemini); ok {
+	if _, ok := s.(*summarize.LLM); ok {
 		return "llm"
 	}
 	return "heuristic"

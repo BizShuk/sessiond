@@ -13,7 +13,7 @@
 sessiond:
   summarizer:
     provider: auto
-    model: gemma-4-26b-a4b-it
+    model: MiniMax-M3
   agents:
     claude:
       transcripts_dir: ""
@@ -28,5 +28,5 @@ sessiond:
 # Legacy: SUPERSET_SUMMARIZER, SUPERSET_SUMMARIZER_MODEL,
 # SUPERSET_CODEX_SESSIONS_DIR
 
-# auto uses Gemini when GOOGLE_API_KEY is set, otherwise heuristic.
-# heuristic disables network calls; google fails if the key is missing.
+# auto uses MiniMax when MINIMAX_API_KEY is set, otherwise heuristic.
+# heuristic disables network calls; minimax fails if the key is missing.

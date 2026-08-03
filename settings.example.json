@@ -8,9 +8,9 @@
     },
     "summarizer": {
       "provider": "auto",
-      "_provider_doc": "auto | heuristic | google",
-      "model": "gemma-4-26b-a4b-it",
-      "_model_doc": "Verified-existing id as of 2026-07-20; earlier drafts (gemma-4-31b, gemma-3-27b-it) returned 404"
+      "_provider_doc": "auto | heuristic | minimax",
+      "model": "MiniMax-M3",
+      "_model_doc": "agentsdk minimax provider catalog top entry (256k context, 16k max, reasoning). Override via APP_SESSIOND_SUMMARIZER_MODEL or sessiond.summarizer.model."
     },
     "agents": {
       "claude": {

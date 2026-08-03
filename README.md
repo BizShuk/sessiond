@@ -4,8 +4,8 @@
 把每個 turn 濃縮成一行摘要,append 到 per-session JSONL,供 `superset` VSCode side panel 讀取。
 
 獨立 Go module(`github.com/bizshuk/sessiond`),import 框架層 `gosdk`(config/data dir)。
-有 `GOOGLE_API_KEY` 時使用 `gemma` 摘要(`agentSDK provider/google`)，否則使用零成本
-heuristic(取 user prompt)。
+有 provider 對應的 API key 時透過 `agentsdk` provider registry 呼叫 LLM 摘要(預設 provider `minimax`、model `MiniMax-M3`)，否則使用零成本
+heuristic(取 user prompt)。換 provider 只需改 `sessiond.summarizer.provider` 與 `sessiond.summarizer.model`，不需改 code。
 
 ## 用法 (Usage)
 
@@ -76,22 +76,28 @@ go build -o ~/.local/bin/sessiond .
 
 ## 摘要後端 (Summarizer)
 
-無 `GOOGLE_API_KEY` 時用 heuristic(取 user prompt);有 key 時自動切 `gemma`(`agentSDK provider/google`),
+預設用 heuristic(取 user prompt);`sessiond.summarizer.provider` 設成非 heuristic 時，若對應 provider 的 API key env 已設就會切到 LLM，沒設就降級 heuristic。
 非 rate-limit 的失敗、逾時或空回覆自動降級 heuristic。新增 turns 以 FIFO queue 依序摘要；
 HTTP 429 時保留 queue head、pause 固定 1 分鐘後重試，後續 event 不會越過它。若等待期間
 process context 被取消，本批不寫入 store，下一次 hook 會從 transcript 與既有 turn count
 重新取得未完成 events。
 
+切換 provider（以預設的 `minimax` 為例）：
+
+1. `sessiond.summarizer.provider: minimax` — agentsdk registry 名稱
+2. `sessiond.summarizer.model: MiniMax-M3` — 該 provider catalog 內的 model id
+3. 設對應的 API key env（minimax → `MINIMAX_API_KEY`；anthropic → `ANTHROPIC_API_KEY`；查 `agentsdk provider/<name>` 的 `Metadata.APIKeyEnv` 即可）
+
 | env | 預設 | 用途 |
 | --- | --- | --- |
-| `GOOGLE_API_KEY` | — | 設了才啟用 gemma |
-| `SUPERSET_SUMMARIZER_MODEL` | `gemma-3-27b-it`(暫定,需 verify) | gemma model id |
-| `SUPERSET_SUMMARIZER` | — | 設 `heuristic` 可強制關閉 gemma |
+| `<PROVIDER>_API_KEY` | — | 對應 provider 的 API key，例如 `MINIMAX_API_KEY` |
+| `SUPERSET_SUMMARIZER_MODEL` | `MiniMax-M3` | provider catalog 內的 model id |
+| `SUPERSET_SUMMARIZER` / `APP_SESSIOND_SUMMARIZER_PROVIDER` | `auto` | 覆寫 provider：`auto` / `heuristic` / registry name |
 
 ## 狀態 (Status)
 
 - ✅ Claude hook + Codex hook ingest → JSONL(冪等,只摘要新增 turn)
-- ✅ `gemma` 摘要後端(`pkg/summarize/gemini.go`);加 `GOOGLE_API_KEY` 即生效,否則 heuristic
+- ✅ LLM 摘要後端（`pkg/summarize/llm.go`，provider-agnostic via `agentsdk` registry）; provider 對應的 API key 設了即生效，否則 heuristic
 - ✅ LLM event FIFO queue；HTTP 429 pause 1 分鐘後重試 queue head
 - ⏸ VSCode `superset/src/sessions/`:讀本契約 + TreeView + resume-in-terminal
 

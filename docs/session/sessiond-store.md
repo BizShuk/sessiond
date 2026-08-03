@@ -141,14 +141,14 @@ schema 已預留、extension 端契約為「每筆 tool 渲染成一個 H3 區�
 
 | `source` | 產生方式 | 觸發條件 |
 | --- | --- | --- |
-| `heuristic` | 取 prompt 第一行，截 60 字，零成本 | `SUMMARIZER_PROVIDER=heuristic`，或 `auto` 且 `GOOGLE_API_KEY` 未設，或 LLM 失敗 fallback |
-| `llm` | Gemini（gemma 模型）摘要，截 80 字 | provider 非 heuristic 且 provider 建構成功 |
+| `heuristic` | 取 prompt 第一行，截 60 字，零成本 | `SUMMARIZER_PROVIDER=heuristic`，或 `auto` 且 `MINIMAX_API_KEY` 未設，或 LLM 失敗 fallback |
+| `llm` | 透過 `agentsdk` provider registry 呼叫 LLM 摘要，截 80 字。預設 provider 是 `minimax`（model `MiniMax-M3`）；改 `sessiond.summarizer.provider` 與 `model` 即可切換 | provider 非 heuristic 且 provider 建構成功 |
 | `native` | 保留值 | 目前無實作 |
 
 LLM prompt 只包含 user prompt 與 final assistant response（各截 3000 字）；commentary、tool call/result、
 token usage 都不送入 LLM。只有摘要落地，assistant 原文不落地。
 
-已知不一致：`hook.Run` 的 log 以型別判斷輸出 `summarizer=llm`，但 `Gemini.Summarize` 遇錯會 fallback 到 `Heuristic`，此時每筆 turn 的 `source` 是 `heuristic` 而 log 仍寫 `llm`。屬顯示問題，不影響資料。
+已知不一致：`hook.Run` 的 log 以型別判斷輸出 `summarizer=llm`，但 `LLM.Summarize` 遇錯會 fallback 到 `Heuristic`，此時每筆 turn 的 `source` 是 `heuristic` 而 log 仍寫 `llm`。屬顯示問題，不影響資料。
 
 ## 資料取捨 (Data Trade-offs)
 

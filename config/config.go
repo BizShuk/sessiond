@@ -25,8 +25,8 @@ import (
 // Package defaults are registered automatically when config is imported.
 func init() {
 	viper.SetDefault("sessiond.hooks.paused", false)
-	viper.SetDefault("sessiond.summarizer.provider", "auto") // auto | heuristic | google
-	viper.SetDefault("sessiond.summarizer.model", "gemma-4-26b-a4b-it")
+	viper.SetDefault("sessiond.summarizer.provider", "auto") // auto | heuristic | <any registered provider name, e.g. "minimax">
+	viper.SetDefault("sessiond.summarizer.model", "MiniMax-M3")
 	viper.SetDefault("sessiond.agents.claude.transcripts_dir", "") // empty → default ~/.claude/projects
 	viper.SetDefault("sessiond.agents.codex.sessions_dir", "")     // empty → default ~/.codex/sessions
 }
@@ -36,9 +36,12 @@ func HooksPaused() (bool, error) {
 	return viper.GetBool("sessiond.hooks.paused"), nil
 }
 
-// SummarizerProvider returns "auto" (default), "heuristic" (forced), or
-// "google" (forced). Callers in internal/hook translate "auto" into the
-// presence/absence of GOOGLE_API_KEY.
+// SummarizerProvider returns the configured provider name. Accepted values
+// are "auto" (default — picks LLM when its key env var is set, else
+// heuristic), "heuristic" (forced — never calls an LLM), or any provider
+// name registered with the agentsdk provider registry (e.g. "minimax",
+// "anthropic", "google"). Callers in internal/hook look up the chosen
+// provider's API-key env var via summarize.IsProviderConfigured.
 func SummarizerProvider() string {
 	if v := os.Getenv("SUPERSET_SUMMARIZER"); v != "" {
 		return v
@@ -49,7 +52,9 @@ func SummarizerProvider() string {
 	return viper.GetString("sessiond.summarizer.provider")
 }
 
-// SummarizerModel is the gemma model id handed to agentSDK google.WithModel.
+// SummarizerModel is the model id handed to the chosen agentSDK provider.
+// The provider's own catalog validates the id; invalid ids fall through to
+// the heuristic summarizer on the first error.
 func SummarizerModel() string {
 	if v := os.Getenv("SUPERSET_SUMMARIZER_MODEL"); v != "" {
 		return v

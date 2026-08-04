@@ -1,0 +1,14 @@
+{
+  "name": "sessiond",
+  "version": "0.0.0",
+  "private": true,
+  "description": "跨 agent session 摘要 ingestor：由 Claude Code / Codex lifecycle hook 觸發，寫入 per-session JSONL",
+  "scripts": {
+    "dev": "go run .",
+    "test": "go test ./...",
+    "build": "go build -o bin/sessiond .",
+    "deploy": "go install .",
+    "lint": "gofmt -l . && go vet ./...",
+    "clean": "rm -rf bin"
+  }
+}

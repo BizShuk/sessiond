@@ -101,4 +101,4 @@ process context 被取消，本批不寫入 store，下一次 hook 會從 transc
 - ✅ LLM event FIFO queue；HTTP 429 pause 1 分鐘後重試 queue head
 - ⏸ VSCode `superset/src/sessions/`:讀本契約 + TreeView + resume-in-terminal
 
-設計全文見 [`../plans/2026-07-19-multi-agent-session-summary.md`](../plans/2026-07-19-multi-agent-session-summary.md)。
+設計全文見 [`plans/2026-07-31-rate-limit-event-queue.md`](plans/2026-07-31-rate-limit-event-queue.md)。

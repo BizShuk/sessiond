@@ -19,6 +19,8 @@ package config
 import (
 	"os"
 
+	_ "github.com/bizshuk/sessiond/config/example"
+
 	"github.com/spf13/viper"
 )
 

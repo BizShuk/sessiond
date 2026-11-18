@@ -1,5 +1,5 @@
 {
-  "_comment": "sessiond settings.json — drop into . / ./conf / ~/.config/superset/ as settings.json. Layered with config.yaml if both present (local wins). See config.example.yaml for env-var mapping.",
+  "_comment": "sessiond settings.json — copied to ~/.config/<app>/settings.json by `sessiond config default`. Layered with config.yaml if both present (local wins). See config.example.yaml for env-var mapping.",
 
   "sessiond": {
     "hooks": {

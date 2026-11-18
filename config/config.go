@@ -19,18 +19,19 @@ package config
 import (
 	"os"
 
-	_ "github.com/bizshuk/sessiond/config/example"
+	gosdkcfg "github.com/bizshuk/gosdk/config"
+	"github.com/bizshuk/sessiond/config/example"
 
 	"github.com/spf13/viper"
 )
 
-// Package defaults are registered automatically when config is imported.
-func init() {
-	viper.SetDefault("sessiond.hooks.paused", false)
-	viper.SetDefault("sessiond.summarizer.provider", "auto") // auto | heuristic | <any registered provider name, e.g. "minimax">
-	viper.SetDefault("sessiond.summarizer.model", "MiniMax-M3")
-	viper.SetDefault("sessiond.agents.claude.transcripts_dir", "") // empty → default ~/.claude/projects
-	viper.SetDefault("sessiond.agents.codex.sessions_dir", "")     // empty → default ~/.codex/sessions
+// APP_NAME decides the config directory: ~/.config/superset.
+const APP_NAME = "superset"
+
+// Load runs gosdk's config.Default with config/example/settings.example.json as
+// the lowest layer — the single source of sessiond's defaults.
+func Load() {
+	gosdkcfg.Default(gosdkcfg.WithAppName(APP_NAME), gosdkcfg.WithDefaultValue(string(example.Settings)))
 }
 
 // HooksPaused reports whether hook ingestion is disabled.

@@ -137,7 +137,7 @@ func withDefaults(o RunOptions) RunOptions {
 		o.Logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	}
 	if o.DataDir == "" {
-		gosdkcfg.Default(gosdkcfg.WithAppName("superset"))
+		sessiondcfg.Load()
 		o.DataDir = gosdkcfg.GetAppDataDir()
 	}
 	if o.CodexDir == "" {

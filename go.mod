@@ -3,7 +3,7 @@ module github.com/bizshuk/sessiond
 go 1.26.0
 
 require (
-	github.com/bizshuk/gosdk v1.3.27
+	github.com/bizshuk/gosdk v1.3.28
 	github.com/spf13/cobra v1.10.2
 )
 

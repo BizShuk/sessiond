@@ -350,11 +350,12 @@ func backup(path string) error {
 	if info, statErr := os.Stat(path); statErr == nil {
 		mode = info.Mode().Perm()
 	}
-	stamp := time.Now().UnixNano()
+	// <path>.bak.<YYYYMMDD-HHMMSS>, -1/-2 on a same-second clash (gosdk backup format).
+	stamp := time.Now().Format("20060102-150405")
 	for attempt := 0; attempt < 100; attempt++ {
-		candidate := fmt.Sprintf("%s.bak.%d", path, stamp)
+		candidate := fmt.Sprintf("%s.bak.%s", path, stamp)
 		if attempt > 0 {
-			candidate = fmt.Sprintf("%s.%d", candidate, attempt)
+			candidate = fmt.Sprintf("%s-%d", candidate, attempt)
 		}
 		file, err := os.OpenFile(candidate, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 		if errors.Is(err, os.ErrExist) {

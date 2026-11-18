@@ -4,8 +4,8 @@ github.com/bahlo/generic-list-go v0.2.0 h1:5sz/EEAK+ls5wF+NeqDpk5+iNdMDXrh3z3nPn
 github.com/bahlo/generic-list-go v0.2.0/go.mod h1:2KvAjgMlE5NNynlg/5iLrrCCZ2+5xWbdbCW3pNTGyYg=
 github.com/bizshuk/agentsdk v0.0.29 h1:fC4c3M/G8G2PhU7MwU/Kz+7EAoK/AiC+PoUVyY/gwFg=
 github.com/bizshuk/agentsdk v0.0.29/go.mod h1:tBykaOXat8VqmdkM4KbxMN1XbHXE7umbdtmrjspeAzw=
-github.com/bizshuk/gosdk v1.3.28 h1:lS7dprXznSJci7N3F5fKWFajIUpjyKowbt4w4kAOjYs=
-github.com/bizshuk/gosdk v1.3.28/go.mod h1:EqyGgu1mgQ2JGFglktrR+8oaDJZwAKz1ABk4mu4V2eM=
+github.com/bizshuk/gosdk v1.8.5 h1:fRp9MMTeTTK/G0p0L9hotIriUGYIPmLFeVuhfefwAhc=
+github.com/bizshuk/gosdk v1.8.5/go.mod h1:EqyGgu1mgQ2JGFglktrR+8oaDJZwAKz1ABk4mu4V2eM=
 github.com/buger/jsonparser v1.1.2 h1:frqHqw7otoVbk5M8LlE/L7HTnIq2v9RX6EJ48i9AxJk=
 github.com/buger/jsonparser v1.1.2/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
@@ -17,6 +17,8 @@ github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/go-viper/mapstructure/v2 v2.4.0 h1:EBsztssimR/CONLSZZ04E8qAkxNYq4Qp9LvH92wZUgs=
 github.com/go-viper/mapstructure/v2 v2.4.0/go.mod h1:oJDH3BJKyqBA2TXFhDsKDGDTlndYOZ6rGS0BRZIxGhM=
+github.com/gocarina/gocsv v0.0.0-20260523204920-c264028e67ea h1:XvL0wVLiLmxbUB0xbPE3vY70Qrk0bkCdD8h7SL1Hyl4=
+github.com/gocarina/gocsv v0.0.0-20260523204920-c264028e67ea/go.mod h1:5YoVOkjYAQumqlV356Hj3xeYh4BdZuLE0/nRkf2NKkI=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
